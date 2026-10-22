@@ -24,6 +24,9 @@ public class AiModule : Module
         {
             builder.RegisterType<AiBehavior>().AsSelf().As<IAssettoServerAutostart>().SingleInstance();
             builder.RegisterType<AiUpdater>().AsSelf().SingleInstance().AutoActivate();
+            builder.RegisterType<AiTrace>().AsSelf().As<IHostedService>().SingleInstance();
+            builder.RegisterType<AiPlayerLanes>().AsSelf().SingleInstance();
+            builder.RegisterType<AiMerges>().AsSelf().SingleInstance();
             builder.RegisterType<AiSlotFilter>().As<IOpenSlotFilter>();
             
             if (_configuration.Extra.AiParams.HourlyTrafficDensity != null)

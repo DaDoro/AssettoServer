@@ -36,6 +36,39 @@ public class ACServerConfigurationValidator : AbstractValidator<ACServerConfigur
                 aiParams.RuleFor(ai => ai.CarSpecificOverrides).NotNull();
                 aiParams.RuleFor(ai => ai.AiBehaviorUpdateIntervalHz).GreaterThan(0);
                 aiParams.RuleFor(ai => ai.LaneCountSpecificOverrides).NotNull();
+                aiParams.RuleFor(ai => ai.FollowingModel).IsInEnum();
+                aiParams.RuleFor(ai => ai.Acc).NotNull().ChildRules(acc =>
+                {
+                    acc.RuleFor(a => a.MinTimeHeadwaySeconds).GreaterThan(0).LessThanOrEqualTo(a => a.MaxTimeHeadwaySeconds);
+                    acc.RuleFor(a => a.MinStandstillGapMeters).GreaterThan(0).LessThanOrEqualTo(a => a.MaxStandstillGapMeters);
+                    acc.RuleFor(a => a.MinAccelerationFactor).GreaterThan(0).LessThanOrEqualTo(a => a.MaxAccelerationFactor);
+                    acc.RuleFor(a => a.MinComfortableDecelerationMs2).GreaterThan(0).LessThanOrEqualTo(a => a.MaxComfortableDecelerationMs2);
+                    acc.RuleFor(a => a.AccelerationExponent).GreaterThan(0);
+                    acc.RuleFor(a => a.Coolness).InclusiveBetween(0, 1);
+                    acc.RuleFor(a => a.DesiredSpeedVariationPercent).InclusiveBetween(0, 1);
+                    acc.RuleFor(a => a.MinLookaheadMeters).GreaterThan(0);
+                    acc.RuleFor(a => a.LookaheadSeconds).GreaterThanOrEqualTo(0);
+                    acc.RuleFor(a => a.BrakeLightsOffDecelerationMs2).GreaterThanOrEqualTo(0).LessThanOrEqualTo(a => a.BrakeLightsOnDecelerationMs2);
+                    acc.RuleFor(a => a.PlayerHalfWidthMeters).GreaterThanOrEqualTo(0);
+                    acc.RuleFor(a => a.DefaultVehicleLengthMeters).GreaterThanOrEqualTo(0);
+                    acc.RuleFor(a => a.LaneSpeedFractions).NotNull();
+                    acc.RuleForEach(a => a.LaneSpeedFractions)
+                        .Must(kv => kv.Key > 0 && kv.Value != null && kv.Value.Count == kv.Key)
+                        .WithMessage("LaneSpeedFractions: every entry must have as many values as its number of lanes");
+                });
+                aiParams.RuleFor(ai => ai.Merges).NotNull().ChildRules(merges =>
+                {
+                    merges.RuleFor(m => m.ZoneDistanceMeters).GreaterThan(0);
+                    merges.RuleFor(m => m.SafeDecelerationMs2).GreaterThan(0).LessThanOrEqualTo(m => m.AbortDecelerationMs2);
+                    merges.RuleFor(m => m.PlayerSafeDecelerationMs2).GreaterThan(0);
+                    merges.RuleFor(m => m.AggressivePlayerSafeDecelerationMs2).GreaterThan(0);
+                    merges.RuleFor(m => m.PatienceSeconds).GreaterThanOrEqualTo(0);
+                    merges.RuleFor(m => m.PatienceRampSeconds).GreaterThan(0);
+                    merges.RuleFor(m => m.RampSpawnShare).InclusiveBetween(0, 1);
+                    merges.RuleFor(m => m.RampSpawnMinAheadMeters).GreaterThanOrEqualTo(0).LessThanOrEqualTo(m => m.RampSpawnMaxAheadMeters);
+                    merges.RuleFor(m => m.RampSpawnMinBeforeMergeMeters).GreaterThanOrEqualTo(0).LessThanOrEqualTo(m => m.RampSpawnMaxBeforeMergeMeters);
+                    merges.RuleFor(m => m.RampSpawnIntervalSeconds).GreaterThanOrEqualTo(0);
+                });
                 aiParams.RuleForEach(ai => ai.LaneCountSpecificOverrides).ChildRules(overrides =>
                 {
                     overrides.RuleFor(o => o.Key).GreaterThan(0);

@@ -27,6 +27,7 @@ public class ACServerConfiguration
     [YamlIgnore] public string? CSPExtraOptions { get; }
     [YamlIgnore] public string BaseFolder { get; }
     [YamlIgnore] public bool LoadPluginsFromWorkdir { get; }
+    [YamlIgnore] public string? AiTraceDirectory { get; }
     [YamlIgnore] public int RandomSeed { get; } = Random.Shared.Next();
     
     /*
@@ -43,10 +44,11 @@ public class ACServerConfiguration
      *
      * When "entryListPath" is set, it takes precedence and entry_list.ini will be loaded from the specified path.
      */
-    public ACServerConfiguration(string preset, string serverCfgPath, string entryListPath, bool loadPluginsFromWorkdir)
+    public ACServerConfiguration(string preset, string serverCfgPath, string entryListPath, bool loadPluginsFromWorkdir, string? aiTraceDirectory = null, string? aiFollowingModel = null, bool aiLaneChanges = false, bool aiMerges = false, bool aiIncidents = false, bool aiVisuals = false, bool aiVanilla = false)
     {
         BaseFolder = string.IsNullOrEmpty(preset) ? "cfg" : Path.Join("presets", preset);
         LoadPluginsFromWorkdir = loadPluginsFromWorkdir;
+        AiTraceDirectory = string.IsNullOrEmpty(aiTraceDirectory) ? null : aiTraceDirectory;
 
         if (string.IsNullOrEmpty(entryListPath))
         {
@@ -114,9 +116,104 @@ public class ACServerConfiguration
         Sessions = sessions;
 
         LoadExtraConfig();
+        ApplyAiFollowingModelOverride(aiFollowingModel);
+        ApplyAiLaneChangesOverride(aiLaneChanges);
+        ApplyAiMergesOverride(aiMerges);
+        ApplyAiIncidentsOverride(aiIncidents);
+        ApplyAiVisualsOverride(aiVisuals);
+        ApplyAiVanillaOverride(aiVanilla);
+        DisableAccFeaturesForVanilla();
+        Log.Information("AI traffic: {Model} following model, lane changes {LaneChanges}, merges {Merges}, incidents {Incidents}, visuals {Visuals}, headlights {Lights}",
+            Extra.AiParams.FollowingModel, OnOff(Extra.AiParams.LaneChanges.Enabled), OnOff(Extra.AiParams.Merges.Enabled),
+            OnOff(Extra.AiParams.Incidents.Enabled), OnOff(Extra.AiParams.Visuals.Enabled),
+            Extra.AiParams.EnableDaytimeLights ? "always" : "by sun");
 
         var validator = new ACServerConfigurationValidator();
         validator.ValidateAndThrow(this);
+    }
+
+    private void ApplyAiFollowingModelOverride(string? aiFollowingModel)
+    {
+        if (string.IsNullOrEmpty(aiFollowingModel)) return;
+
+        if (!Enum.TryParse<AiFollowingModel>(aiFollowingModel, true, out var model) || !Enum.IsDefined(model))
+            throw new ConfigurationException($"Unknown --ai-model value \"{aiFollowingModel}\". Possible values: {string.Join(", ", Enum.GetNames<AiFollowingModel>())}");
+
+        Log.Information("AI following model {Model} set by --ai-model (extra_cfg.yml: {ConfigModel})", model, Extra.AiParams.FollowingModel);
+        Extra.AiParams.FollowingModel = model;
+    }
+
+    private void ApplyAiLaneChangesOverride(bool aiLaneChanges)
+    {
+        if (aiLaneChanges && !Extra.AiParams.LaneChanges.Enabled)
+        {
+            Log.Information("AI lane changes enabled by --ai-lane-changes (extra_cfg.yml: disabled)");
+            Extra.AiParams.LaneChanges.Enabled = true;
+        }
+
+    }
+
+    private void ApplyAiMergesOverride(bool aiMerges)
+    {
+        if (aiMerges && !Extra.AiParams.Merges.Enabled)
+        {
+            Log.Information("AI merges enabled by --ai-merges (extra_cfg.yml: disabled)");
+            Extra.AiParams.Merges.Enabled = true;
+        }
+
+    }
+
+    private void ApplyAiIncidentsOverride(bool aiIncidents)
+    {
+        if (aiIncidents && !Extra.AiParams.Incidents.Enabled)
+        {
+            Log.Information("AI incidents enabled by --ai-incidents (extra_cfg.yml: disabled)");
+            Extra.AiParams.Incidents.Enabled = true;
+        }
+
+    }
+
+    private static string OnOff(bool enabled) => enabled ? "on" : "off";
+
+    /// <summary>--ai-vanilla: AI traffic of AssettoServer 0.0.54, for comparisons</summary>
+    private void ApplyAiVanillaOverride(bool aiVanilla)
+    {
+        if (!aiVanilla) return;
+
+        Log.Information("AI traffic of AssettoServer 0.0.54 set by --ai-vanilla: Vanilla following model, no lane changes, merges, incidents, visuals, headlights always on");
+        Extra.AiParams.FollowingModel = AiFollowingModel.Vanilla;
+        Extra.AiParams.LaneChanges.Enabled = false;
+        Extra.AiParams.Merges.Enabled = false;
+        Extra.AiParams.Incidents.Enabled = false;
+        Extra.AiParams.Visuals.Enabled = false;
+        Extra.AiParams.EnableDaytimeLights = true;
+    }
+
+    /// <summary>Lane changes, merges and incidents work on top of the Acc following model: off with Vanilla</summary>
+    private void DisableAccFeaturesForVanilla()
+    {
+        var ai = Extra.AiParams;
+        if (ai.FollowingModel == AiFollowingModel.Acc) return;
+
+        if (ai.LaneChanges.Enabled || ai.Merges.Enabled || ai.Incidents.Enabled)
+        {
+            Log.Information("AI lane changes, merges and incidents are off: they require the Acc following model");
+            ai.LaneChanges.Enabled = false;
+            ai.Merges.Enabled = false;
+            ai.Incidents.Enabled = false;
+        }
+    }
+
+    private void ApplyAiVisualsOverride(bool aiVisuals)
+    {
+        if (aiVisuals && !Extra.AiParams.Visuals.Enabled)
+        {
+            Log.Information("AI visuals enabled by --ai-visuals (extra_cfg.yml: disabled)");
+            Extra.AiParams.Visuals.Enabled = true;
+        }
+
+        if (Extra.AiParams.Visuals.Enabled && (Extra.AiParams.Visuals.GearRatios.Count == 0 || Extra.AiParams.Visuals.GearRatios.Count > 9))
+            throw new ConfigurationException("AiParams.Visuals.GearRatios needs 1 to 9 gears");
     }
 
     private void LoadExtraConfig() {

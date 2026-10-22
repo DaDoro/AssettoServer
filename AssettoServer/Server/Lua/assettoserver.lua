@@ -65,6 +65,18 @@ end)
 
 apiKeyEvent({ key = "" })
 
+-- Fork: admin teleport (/tp commands), backported from 0.0.55
+local teleportCarEvent = ac.OnlineEvent({
+    ac.StructItem.key("AS_TeleportCar"),
+    position = ac.StructItem.vec3(),
+    direction = ac.StructItem.vec3(),
+    velocity = ac.StructItem.vec3(),
+}, function (sender, message)
+    if sender ~= nil then return end
+    physics.setCarPosition(0, message.position, message.direction)
+    physics.setCarVelocity(0, message.velocity)
+end)
+
 local logoSize = vec2(68, 42)
 local srpLogoSize = vec2(244, 64)
 local isSRP = ac.getTrackID():find("^shuto_revival_project_beta") ~= nil

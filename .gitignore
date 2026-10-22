@@ -364,3 +364,5 @@ FodyWeavers.xsd
 
 out-linux-*
 out-win-*
+# AI traffic traces (--ai-trace)
+traces/

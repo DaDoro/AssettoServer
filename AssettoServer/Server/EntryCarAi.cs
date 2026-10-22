@@ -49,6 +49,9 @@ public partial class EntryCar
     public int? MaxAiSafetyDistanceMetersSquared { get; set; }
     public List<LaneSpawnBehavior>? AiAllowedLanes { get; set; }
     public float TyreDiameterMeters { get; set; }
+    /// <summary>AiParams.Visuals: wheelbase and rpm limit of this car model</summary>
+    public float AiWheelbaseMeters { get; set; }
+    public int AiVisualMaxRpm { get; set; }
     private readonly List<AiState> _aiStates = new List<AiState>();
     private readonly ReaderWriterLockSlim _aiStatesLock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
     
@@ -73,6 +76,8 @@ public partial class EntryCar
         AiCorneringBrakeDistanceFactor = _configuration.Extra.AiParams.CorneringBrakeDistanceFactor;
         AiCorneringBrakeForceFactor = _configuration.Extra.AiParams.CorneringBrakeForceFactor;
         TyreDiameterMeters = _configuration.Extra.AiParams.TyreDiameterMeters;
+        AiWheelbaseMeters = _configuration.Extra.AiParams.Visuals.WheelbaseMeters;
+        AiVisualMaxRpm = _configuration.Extra.AiParams.Visuals.MaxRpm;
         AiMinSpawnProtectionTimeMilliseconds = _configuration.Extra.AiParams.MinSpawnProtectionTimeMilliseconds;
         AiMaxSpawnProtectionTimeMilliseconds = _configuration.Extra.AiParams.MaxSpawnProtectionTimeMilliseconds;
         AiMinCollisionStopTimeMilliseconds = _configuration.Extra.AiParams.MinCollisionStopTimeMilliseconds;
@@ -87,7 +92,12 @@ public partial class EntryCar
                 if (carOverrides.EngineIdleRpm.HasValue)
                     AiIdleEngineRpm = carOverrides.EngineIdleRpm.Value;
                 if (carOverrides.EngineMaxRpm.HasValue)
+                {
                     AiMaxEngineRpm = carOverrides.EngineMaxRpm.Value;
+                    AiVisualMaxRpm = carOverrides.EngineMaxRpm.Value;
+                }
+                if (carOverrides.WheelbaseMeters.HasValue)
+                    AiWheelbaseMeters = carOverrides.WheelbaseMeters.Value;
                 if (carOverrides.Acceleration.HasValue)
                     AiAcceleration = carOverrides.Acceleration.Value;
                 if (carOverrides.Deceleration.HasValue)
@@ -142,7 +152,7 @@ public partial class EntryCar
                         && Vector3.DistanceSquared(aiState.Status.Position, targetAiState.Status.Position) < _configuration.Extra.AiParams.MinStateDistanceSquared
                         && (_configuration.Extra.AiParams.TwoWayTraffic || Vector3.Dot(aiState.Status.Velocity, targetAiState.Status.Velocity) > 0))
                     {
-                        aiState.Despawn();
+                        aiState.Despawn("close_state");
                         Logger.Verbose("Removed close state from AI {SessionId}", SessionId);
                     }
                 }
@@ -325,7 +335,7 @@ public partial class EntryCar
                 _aiStatesLock.EnterWriteLock();
                 try
                 {
-                    aiState.Despawn();
+                    aiState.Despawn("overbooking");
                     _aiStates.Remove(aiState);
                 }
                 finally
@@ -451,7 +461,7 @@ public partial class EntryCar
         {
             foreach (var state in _aiStates)
             {
-                state.Despawn();
+                state.Despawn("reset");
             }
             _aiStates.Clear();
             _aiStates.Add(_aiStateFactory(this));

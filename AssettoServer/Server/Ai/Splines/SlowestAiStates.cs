@@ -21,7 +21,7 @@ public class SlowestAiStates
         {
             ref var currentAiState = ref _aiStates[pointId];
             
-            if (currentAiState != null && currentAiState.CurrentSplinePointId != pointId)
+            if (currentAiState != null && currentAiState.CurrentSplinePointId != pointId && currentAiState.ShadowSplinePointId != pointId)
             {
                 _lock.EnterWriteLock();
                 try

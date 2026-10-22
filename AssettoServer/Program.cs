@@ -34,6 +34,27 @@ internal static class Program
 
         [Option("plugins-from-workdir", Required = false, HelpText = "Additionally load plugins from working directory")]
         public bool LoadPluginsFromWorkdir { get; set; } = false;
+
+        [Option("ai-trace", Required = false, HelpText = "Record AI traffic to a JSONL file in the given directory")]
+        public string AiTraceDirectory { get; set; } = "";
+
+        [Option("ai-model", Required = false, HelpText = "Override AiParams.FollowingModel (vanilla or acc)")]
+        public string AiFollowingModel { get; set; } = "";
+
+        [Option("ai-lane-changes", Required = false, HelpText = "Enable AI lane changes (AiParams.LaneChanges.Enabled), requires the Acc following model")]
+        public bool AiLaneChanges { get; set; } = false;
+
+        [Option("ai-merges", Required = false, HelpText = "Enable AI merges (AiParams.Merges.Enabled), requires the Acc following model")]
+        public bool AiMerges { get; set; } = false;
+
+        [Option("ai-incidents", Required = false, HelpText = "Enable AI incident handling (AiParams.Incidents.Enabled): reaction to collisions by impact speed, going around stopped obstacles. Requires the Acc following model")]
+        public bool AiIncidents { get; set; } = false;
+
+        [Option("ai-visuals", Required = false, HelpText = "Enable AI visuals (AiParams.Visuals.Enabled): turning front wheels, automatic gearbox, engine rpm and throttle")]
+        public bool AiVisuals { get; set; } = false;
+
+        [Option("ai-vanilla", Required = false, HelpText = "AI traffic of AssettoServer 0.0.54: Vanilla following model, no lane changes, merges, incidents, visuals. The fork features are on by default")]
+        public bool AiVanilla { get; set; } = false;
     }
 
     private static bool _isContentManager;
@@ -60,7 +81,7 @@ internal static class Program
         
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
         Log.Information("AssettoServer {Version}", ThisAssembly.AssemblyInformationalVersion);
-        await RunServerAsync(options.Preset, options.ServerCfgPath, options.EntryListPath, options.LoadPluginsFromWorkdir);
+        await RunServerAsync(options.Preset, options.ServerCfgPath, options.EntryListPath, options.LoadPluginsFromWorkdir, options.AiTraceDirectory, options.AiFollowingModel, options.AiLaneChanges, options.AiMerges, options.AiIncidents, options.AiVisuals, options.AiVanilla);
     }
 
     private static async Task RunServerAsync(
@@ -68,11 +89,18 @@ internal static class Program
         string serverCfgPath,
         string entryListPath,
         bool loadPluginsFromWorkdir = false,
+        string aiTraceDirectory = "",
+        string aiFollowingModel = "",
+        bool aiLaneChanges = false,
+        bool aiMerges = false,
+        bool aiIncidents = false,
+        bool aiVisuals = false,
+        bool aiVanilla = false,
         CancellationToken token = default)
     {
         try
         {
-            var config = new ACServerConfiguration(preset, serverCfgPath, entryListPath, loadPluginsFromWorkdir);
+            var config = new ACServerConfiguration(preset, serverCfgPath, entryListPath, loadPluginsFromWorkdir, aiTraceDirectory, aiFollowingModel, aiLaneChanges, aiMerges, aiIncidents, aiVisuals, aiVanilla);
 
             if (config.Extra.LokiSettings != null
                 && !string.IsNullOrEmpty(config.Extra.LokiSettings.Url)
